@@ -957,6 +957,64 @@ test("moment().lang with missing key doesn't change locale", function (assert) {
     );
 });
 
+test('do not load locales from path-like names', function (assert) {
+    var payloads = [
+            '/etc/passwd',
+            './../../../../../../../../../../etc/passwd',
+            '../../../../../../../../../../etc/passwd',
+            '..\\..\\..\\..\\..\\..\\etc\\passwd',
+            '../min/locales',
+        ],
+        localeCount = moment.locales().length;
+
+    each(payloads, function (payload, i) {
+        moment.locale(payload);
+        moment.localeData(payload);
+        moment().locale(payload);
+        moment.defineLocale('path-like-parent-child-' + i, {
+            parentLocale: payload,
+        });
+
+        assert.equal(
+            moment.locale(),
+            'en',
+            'keeps the global locale for "' + payload + '"'
+        );
+        assert.equal(
+            indexOf.call(moment.locales(), payload),
+            -1,
+            'does not try to require "' + payload + '"'
+        );
+        assert.equal(
+            moment.locales().length,
+            localeCount,
+            'does not load any module for "' + payload + '"'
+        );
+    });
+});
+
+test('still lazy load locales with sane names', function (assert) {
+    var name = 'sane-but-missing-locale';
+
+    if (typeof require !== 'function') {
+        // locales are only lazy loaded with require (i.e. in node)
+        assert.expect(0);
+        return;
+    }
+
+    assert.equal(
+        indexOf.call(moment.locales(), name),
+        -1,
+        'locale is not known before the lookup'
+    );
+    moment.localeData(name);
+    assert.notEqual(
+        indexOf.call(moment.locales(), name),
+        -1,
+        'sane locale names still reach the locale loader'
+    );
+});
+
 test('when in strict mode with inexact parsing, treat periods in short weekdays literally, not as the regex-period', function (assert) {
     moment.defineLocale('periods-in-short-weekdays', {
         weekdays: 'Monday_Tuesday_Wednesday_Thursday_Friday_Saturday_Sunday'.split(
